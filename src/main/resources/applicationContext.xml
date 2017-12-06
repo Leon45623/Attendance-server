@@ -1,0 +1,148 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<beans xmlns="http://www.springframework.org/schema/beans"
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:aop="http://www.springframework.org/schema/aop"
+	xmlns:context="http://www.springframework.org/schema/context" xmlns:tx="http://www.springframework.org/schema/tx"
+	xmlns:vld="http://www.springmodules.org/validation/bean/validator"
+	xmlns:util="http://www.springframework.org/schema/util"
+	xsi:schemaLocation="http://www.springframework.org/schema/beans http://www.springframework.org/schema/beans/spring-beans-3.0.xsd
+            http://www.springframework.org/schema/context http://www.springframework.org/schema/context/spring-context-3.0.xsd
+            http://www.springframework.org/schema/aop http://www.springframework.org/schema/aop/spring-aop-3.0.xsd
+            http://www.springframework.org/schema/tx http://www.springframework.org/schema/tx/spring-tx-3.0.xsd
+            http://www.springmodules.org/validation/bean/validator http://www.springmodules.org/validation/bean/validator-2.0.xsd
+            http://www.springframework.org/schema/util http://www.springframework.org/schema/util/spring-util.xsd">
+            	<context:component-scan base-package="com.scb"></context:component-scan>
+	<context:component-scan base-package="com.scb"></context:component-scan>
+	<context:property-placeholder location="classpath*:/h2.properties" />
+	
+	  <!-- 要调用的工作类 -->
+	<bean id="quartzjob" class="com.scb.util.QuartzJob"></bean>
+	<bean id="timingtask" class="com.scb.util.TimingTask"></bean>
+	  <!-- 定义调用的对象和调用对象的方法 -->
+        <bean id="jobtask" class="org.springframework.scheduling.quartz.MethodInvokingJobDetailFactoryBean">
+            <!-- 调用的类 -->
+            <property name="targetObject">
+                <ref bean="quartzjob"/>
+            </property>
+
+            <!-- 调用类中的方法 -->
+            <property name="targetMethod">
+                <!-- 这个方法是一个字符串 -->
+                <value>findcheck</value>
+            </property>
+        </bean>
+        
+        <bean id="jobtask2" class="org.springframework.scheduling.quartz.MethodInvokingJobDetailFactoryBean">
+            <!-- 调用的类 -->
+            <property name="targetObject">
+                <ref bean="timingtask"/>
+            </property>
+
+            <!-- 调用类中的方法 -->
+            <property name="targetMethod">
+                <!-- 这个方法是一个字符串 -->
+                <value>dosomething</value>
+            </property>
+        </bean>
+        
+     <bean id="jobtask3" class="org.springframework.scheduling.quartz.MethodInvokingJobDetailFactoryBean">
+            <!-- 调用的类 -->
+            <property name="targetObject">
+                <ref bean="timingtask"/>
+            </property>
+
+            <!-- 调用类中的方法 -->
+            <property name="targetMethod">
+                <!-- 这个方法是一个字符串 -->
+                <value>insert</value>
+            </property>
+        </bean>
+        
+          <!-- 定义触发时间 ，重点在于 Cron 表达式 -->
+         <bean id="doTime" class="org.springframework.scheduling.quartz.CronTriggerFactoryBean">
+            <property name="jobDetail">
+                <ref bean="jobtask"/>
+            </property>
+            <property name="cronExpression">
+                <value>0 0/1 9-17 ? * MON-FRI </value>
+            </property>
+        </bean> 
+         <bean id="doTime2" class="org.springframework.scheduling.quartz.CronTriggerFactoryBean">
+            <property name="jobDetail">
+                <ref bean="jobtask"/>
+            </property>
+            <property name="cronExpression">
+                <value>0 0-30 17 ? * MON-FRI </value>
+            </property>
+        </bean>  
+        
+            <bean id="doTime3" class="org.springframework.scheduling.quartz.CronTriggerFactoryBean">
+            <property name="jobDetail">
+                <ref bean="jobtask2"/>
+            </property>
+            <property name="cronExpression">
+                <value>0 0 23 * * ?   </value>
+            </property>
+        </bean>  
+           <bean id="doTime4" class="org.springframework.scheduling.quartz.CronTriggerFactoryBean">
+            <property name="jobDetail">
+                <ref bean="jobtask3"/>
+            </property>
+            <property name="cronExpression">
+                <value>0 0 1 * * ?  </value>
+            </property>
+        </bean>  
+             <!-- 总管理类 -->
+        <bean id="startQuartz"  class="org.springframework.scheduling.quartz.SchedulerFactoryBean">
+            <property name="triggers">
+                <list>
+                    <ref bean="doTime"/>
+                      <ref bean="doTime2"/>
+                       <ref bean="doTime3"/>
+                        <ref bean="doTime4"/>
+                </list>
+            </property>
+        </bean>
+	
+	<bean id="mydataSource" class="org.apache.commons.dbcp.BasicDataSource"
+		destroy-method="close">
+		<property name="driverClassName" value="${h2.driver}" />
+		<property name="url" value="${h2.url}" />
+		<property name="username" value="${h2.username}" />
+		<property name="password" value="${h2.password}" />
+	</bean>
+	<bean id="sessionFactory" 
+        class="org.springframework.orm.hibernate4.LocalSessionFactoryBean"> 
+        <property name="dataSource"> 
+            <ref bean="mydataSource" /> 
+        </property> 
+        <property name="hibernateProperties"> 
+            <props> 
+                <prop key="hibernate.dialect">org.hibernate.dialect.H2Dialect</prop> 
+                <prop key="hibernate.show_sql">true</prop>
+             <prop key="hibernate.hbm2ddl.auto">update</prop> 
+            </props> 
+        </property> 
+       <property name="packagesToScan" value="com.scb.po"/>
+        </bean>    
+     <bean class="org.springframework.beans.factory.annotation.AutowiredAnnotationBeanPostProcessor"/>
+    <bean id="transactionManager" class="org.springframework.orm.hibernate4.HibernateTransactionManager">    
+        <property name="sessionFactory" ref="sessionFactory"/>  
+      </bean> 
+      
+    
+    
+      <tx:advice id="txAdvice" transaction-manager="transactionManager">
+        <tx:attributes> 
+            <tx:method name="create*" propagation="REQUIRED" />
+            <tx:method name="save*" propagation="REQUIRED" />
+            <tx:method name="add*" propagation="REQUIRED" />
+            <tx:method name="update*" propagation="REQUIRED" />
+            <tx:method name="remove*" propagation="REQUIRED" />
+            <tx:method name="del*" propagation="REQUIRED" />
+            <tx:method name="import*" propagation="REQUIRED" />
+            <tx:method name="*" propagation="NOT_SUPPORTED" read-only="true" />
+        </tx:attributes>
+    </tx:advice>  
+    <tx:annotation-driven transaction-manager="transactionManager"/>  
+  
+</beans>
